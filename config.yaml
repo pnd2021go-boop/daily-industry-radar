@@ -1,0 +1,71 @@
+site:
+  title: "Daily Industry Radar"
+  timezone: "Asia/Shanghai"
+  lookback_hours: 48
+  max_items: 40
+  top_count: 5
+
+rss_sources:
+  - name: "Furniture Today"
+    url: "https://www.furnituretoday.com/feed/"
+    category: "furniture_home"
+  - name: "Home News Now"
+    url: "https://homenewsnow.com/feed/"
+    category: "furniture_home"
+  - name: "Business of Home"
+    url: "https://businessofhome.com/rss"
+    category: "furniture_home"
+  - name: "Retail Dive"
+    url: "https://www.retaildive.com/feeds/news/"
+    category: "consumer_retail"
+  - name: "The Verge AI"
+    url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
+    category: "ai_tech"
+  - name: "TechCrunch"
+    url: "https://techcrunch.com/feed/"
+    category: "ai_tech"
+
+google_news:
+  language: "en-US"
+  region: "US"
+  keywords:
+    cross_border_ecommerce:
+      - "Amazon marketplace policy"
+      - "TikTok Shop ecommerce"
+      - "Temu seller marketplace"
+      - "Shein marketplace"
+      - "Shopify ecommerce"
+      - "Walmart Marketplace seller"
+      - "Wayfair Marketplace"
+      - "eBay seller policy"
+      - "Etsy seller policy"
+      - "跨境电商 平台 政策"
+      - "跨境卖家 动态"
+    furniture_home:
+      - "Wayfair furniture retail"
+      - "Ashley Furniture"
+      - "IKEA US furniture"
+      - "Furniture Today"
+      - "Business of Home"
+      - "Home News Now"
+      - "Amazon furniture category"
+      - "US home consumer trends"
+      - "DTC furniture brand"
+      - "家具零售 美国"
+    ai_tech:
+      - "OpenAI"
+      - "Anthropic"
+      - "Google AI"
+      - "Perplexity AI search"
+      - "generative engine optimization"
+      - "AI agent workflow"
+      - "RAG automation tools"
+      - "AI workflow automation"
+    consumer_retail:
+      - "consumer electronics trends"
+      - "social media platform commerce"
+      - "retail technology"
+      - "US retail trends"
+      - "Gen Z consumer trends"
+      - "lifestyle trends"
+      - "brand marketing trends"
