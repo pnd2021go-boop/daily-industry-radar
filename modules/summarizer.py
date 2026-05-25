@@ -9,6 +9,10 @@ import requests
 from bs4 import BeautifulSoup
 
 
+ARTICLE_TIMEOUT_SECONDS = 8
+MAX_ARTICLE_CHARS = 6000
+
+
 def _clean_text(text: str) -> str:
     raw = unescape(text or "")
     if "<" in raw and ">" in raw:
@@ -24,37 +28,74 @@ def _clip(text: str, limit: int) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
-def _summary_paragraph(title: str, raw: str, source: str) -> str:
-    if raw:
-        return _clip(
-            f"{source} 的公开资讯显示，{raw} 这条消息与“{title}”相关，"
-            "可用于了解相关平台、品牌、技术或消费市场的最新公开动态。具体细节仍应以原文链接为准。",
-            260,
+def _article_text_from_url(url: str) -> str:
+    if not url:
+        return ""
+    try:
+        response = requests.get(
+            url,
+            timeout=ARTICLE_TIMEOUT_SECONDS,
+            headers={"User-Agent": "DailyIndustryRadar/1.0 (+https://github.com/)"},
         )
-    return _clip(
-        f"{source} 发布了题为“{title}”的公开资讯。由于当前 RSS 未提供更完整正文，"
-        "本摘要仅依据标题、来源和发布时间进行中性整理，主要用于提示该领域出现了新的公开动态；"
-        "具体事件背景、数据口径和影响范围仍需打开原文进一步核对。",
-        260,
-    )
+        response.raise_for_status()
+    except requests.RequestException:
+        return ""
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    for tag in soup(["script", "style", "nav", "header", "footer", "aside", "form"]):
+        tag.decompose()
+
+    article = soup.find("article") or soup.find("main") or soup.body
+    if not article:
+        return ""
+    paragraphs = [_clean_text(p.get_text(" ", strip=True)) for p in article.find_all("p")]
+    text = " ".join(p for p in paragraphs if len(p) >= 40)
+    if not text:
+        text = _clean_text(article.get_text(" ", strip=True))
+    return _clip(text, MAX_ARTICLE_CHARS)
+
+
+def _source_text(item: dict) -> str:
+    article_text = item.get("article_text") or _article_text_from_url(item.get("url", ""))
+    item["article_text"] = article_text
+    raw = _clean_text(item.get("summary_raw", ""))
+    return article_text or raw
+
+
+def _summary_paragraph(title: str, text: str, source: str) -> str:
+    if not text:
+        return f"{source} 发布了题为“{title}”的公开资讯，但当前信息源没有提供足够正文内容。请打开原文链接查看完整报道。"
+
+    sentences = re.split(r"(?<=[。！？.!?])\s+", text)
+    useful = []
+    for sentence in sentences:
+        cleaned = _clean_text(sentence)
+        if len(cleaned) >= 30:
+            useful.append(cleaned)
+        if len(" ".join(useful)) >= 900:
+            break
+    paragraph = " ".join(useful) if useful else text
+    return _clip(paragraph, 1400)
 
 
 def fallback_summary(item: dict) -> dict:
     title = _clean_text(item.get("title", ""))
-    raw = _clean_text(item.get("summary_raw", ""))
+    source_text = _source_text(item)
     source = item.get("source_name", "公开来源")
-    basis = raw or title
+    basis = source_text or title
     return {
         "one_sentence": _clip(basis, 40),
-        "summary": _summary_paragraph(title, raw, source),
+        "summary": _summary_paragraph(title, source_text, source),
         "why_it_matters": "",
     }
 
 
 def _openai_payload(item: dict, model: str) -> dict:
+    article_text = _source_text(item)
     source_data = {
         "title": item.get("title", ""),
         "rss_excerpt": _clip(_clean_text(item.get("summary_raw", "")), 500),
+        "article_excerpt": _clip(article_text, MAX_ARTICLE_CHARS),
         "source_name": item.get("source_name", ""),
         "published_at": item.get("published_at", ""),
         "url": item.get("url", ""),
@@ -72,8 +113,10 @@ def _openai_payload(item: dict, model: str) -> dict:
             {
                 "role": "user",
                 "content": (
-                    "请生成 one_sentence(20-40字) 和 summary(120-220字，完整一段话)。"
-                    "summary 只能基于给定字段，不确定处要谨慎表达，不能扩写为未经证实的事实。"
+                    "请生成 one_sentence(20-40字) 和 summary。summary 必须是一整段完整中文，"
+                    "约等于 180-220 个英文单词的信息量，概括新闻报道核心内容：谁、发生了什么、"
+                    "关键背景、主要数据或变化、报道中明确提到的影响。不要写“可用于了解”“请以原文为准”"
+                    "这类模板废话。summary 只能基于给定字段，不确定处要谨慎表达，不能扩写为未经证实的事实。"
                     f"\n公开资讯字段：{json.dumps(source_data, ensure_ascii=False)}"
                 ),
             },
@@ -101,7 +144,7 @@ def ai_summary(item: dict) -> dict | None:
         parsed = json.loads(content)
         return {
             "one_sentence": _clip(_clean_text(parsed.get("one_sentence", "")), 40),
-            "summary": _clip(_clean_text(parsed.get("summary", "")), 260),
+            "summary": _clip(_clean_text(parsed.get("summary", "")), 1600),
             "why_it_matters": "",
         }
     except (requests.RequestException, KeyError, ValueError, json.JSONDecodeError):

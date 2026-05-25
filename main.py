@@ -37,7 +37,7 @@ def report_date(config: dict) -> str:
 
 
 def enrich_items(items: list[dict], max_items: int) -> list[dict]:
-    enriched: list[dict] = []
+    classified: list[dict] = []
     for item in items:
         classification = classify_item(
             item.get("title", ""),
@@ -46,10 +46,11 @@ def enrich_items(items: list[dict], max_items: int) -> list[dict]:
         )
         item["category"] = classification.category
         item["importance_score"] = classification.importance_score
-        enriched.append(summarize_item(item))
+        classified.append(item)
 
-    enriched.sort(key=lambda x: int(x.get("importance_score", 1)), reverse=True)
-    return enriched[:max_items]
+    classified.sort(key=lambda x: int(x.get("importance_score", 1)), reverse=True)
+    selected = classified[:max_items]
+    return [summarize_item(item) for item in selected]
 
 
 def main() -> None:
