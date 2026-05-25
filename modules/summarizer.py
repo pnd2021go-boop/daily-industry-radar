@@ -58,8 +58,11 @@ def _article_text_from_url(url: str) -> str:
 
 
 def _source_text(item: dict) -> str:
-    article_text = item.get("article_text") or _article_text_from_url(item.get("url", ""))
-    item["article_text"] = article_text
+    if "article_text" in item:
+        article_text = item.get("article_text") or ""
+    else:
+        article_text = _article_text_from_url(item.get("url", ""))
+        item["article_text"] = article_text
     raw = _clean_text(item.get("summary_raw", ""))
     return article_text or raw
 
