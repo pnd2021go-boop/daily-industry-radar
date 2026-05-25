@@ -20,6 +20,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger("daily-industry-radar")
 
 
+CATEGORY_ORDER = [
+    "cross_border_ecommerce",
+    "furniture_home",
+    "ai_tech",
+    "consumer_retail",
+    "others",
+]
+
+
 def load_config(path: Path = Path("config.yaml")) -> dict:
     if not path.exists():
         raise FileNotFoundError("config.yaml not found")
@@ -48,15 +57,55 @@ def enrich_items(items: list[dict], max_items: int) -> list[dict]:
         item["importance_score"] = classification.importance_score
         classified.append(item)
 
-    classified.sort(key=lambda x: int(x.get("importance_score", 1)), reverse=True)
-    selected = []
-    for item in classified[: max_items * 4]:
+    for category in CATEGORY_ORDER:
+        logger.info(
+            "Classified %s items as %s",
+            sum(1 for item in classified if item.get("category") == category),
+            category,
+        )
+
+    def sort_key(item: dict) -> tuple[int, str]:
+        return int(item.get("importance_score", 1)), item.get("published_at", "")
+
+    groups: dict[str, list[dict]] = {category: [] for category in CATEGORY_ORDER}
+    for item in classified:
+        groups.setdefault(item.get("category", "others"), []).append(item)
+
+    for grouped_items in groups.values():
+        grouped_items.sort(key=sort_key, reverse=True)
+
+    selected: list[dict] = []
+    selected_urls: set[str] = set()
+
+    def try_select(item: dict) -> bool:
+        url = item.get("url", "")
+        if url in selected_urls:
+            return False
         if not has_enough_source_text(item):
             logger.info("Skipping item with insufficient source text: %s", item.get("title", ""))
-            continue
+            return False
         selected.append(summarize_item(item))
+        if url:
+            selected_urls.add(url)
+        return True
+
+    per_category_quota = max(2, max_items // max(1, len(CATEGORY_ORDER)))
+    per_category_scan_limit = max(25, max_items)
+    for category in CATEGORY_ORDER:
+        category_selected = 0
+        for item in groups.get(category, [])[:per_category_scan_limit]:
+            if category_selected >= per_category_quota or len(selected) >= max_items:
+                break
+            if try_select(item):
+                category_selected += 1
+
+    remaining = sorted(classified, key=sort_key, reverse=True)
+    for item in remaining:
         if len(selected) >= max_items:
             break
+        try_select(item)
+
+    selected.sort(key=sort_key, reverse=True)
     return selected
 
 
