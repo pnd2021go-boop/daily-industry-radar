@@ -24,6 +24,21 @@ def _clip(text: str, limit: int) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
+def _summary_paragraph(title: str, raw: str, source: str) -> str:
+    if raw:
+        return _clip(
+            f"{source} 的公开资讯显示，{raw} 这条消息与“{title}”相关，"
+            "可用于了解相关平台、品牌、技术或消费市场的最新公开动态。具体细节仍应以原文链接为准。",
+            260,
+        )
+    return _clip(
+        f"{source} 发布了题为“{title}”的公开资讯。由于当前 RSS 未提供更完整正文，"
+        "本摘要仅依据标题、来源和发布时间进行中性整理，主要用于提示该领域出现了新的公开动态；"
+        "具体事件背景、数据口径和影响范围仍需打开原文进一步核对。",
+        260,
+    )
+
+
 def fallback_summary(item: dict) -> dict:
     title = _clean_text(item.get("title", ""))
     raw = _clean_text(item.get("summary_raw", ""))
@@ -31,14 +46,15 @@ def fallback_summary(item: dict) -> dict:
     basis = raw or title
     return {
         "one_sentence": _clip(basis, 40),
-        "summary": _clip(basis if raw else f"{source} 发布相关公开资讯：{title}", 150),
-        "why_it_matters": "该资讯反映相关行业的公开动态，可作为观察平台政策、市场变化或技术趋势的参考。",
+        "summary": _summary_paragraph(title, raw, source),
+        "why_it_matters": "",
     }
 
 
 def _openai_payload(item: dict, model: str) -> dict:
     source_data = {
         "title": item.get("title", ""),
+        "rss_excerpt": _clip(_clean_text(item.get("summary_raw", "")), 500),
         "source_name": item.get("source_name", ""),
         "published_at": item.get("published_at", ""),
         "url": item.get("url", ""),
@@ -56,7 +72,8 @@ def _openai_payload(item: dict, model: str) -> dict:
             {
                 "role": "user",
                 "content": (
-                    "请生成 one_sentence(20-40字)、summary(80-150字)、why_it_matters(中性表达)。"
+                    "请生成 one_sentence(20-40字) 和 summary(120-220字，完整一段话)。"
+                    "summary 只能基于给定字段，不确定处要谨慎表达，不能扩写为未经证实的事实。"
                     f"\n公开资讯字段：{json.dumps(source_data, ensure_ascii=False)}"
                 ),
             },
@@ -84,8 +101,8 @@ def ai_summary(item: dict) -> dict | None:
         parsed = json.loads(content)
         return {
             "one_sentence": _clip(_clean_text(parsed.get("one_sentence", "")), 40),
-            "summary": _clip(_clean_text(parsed.get("summary", "")), 150),
-            "why_it_matters": _clip(_clean_text(parsed.get("why_it_matters", "")), 120),
+            "summary": _clip(_clean_text(parsed.get("summary", "")), 260),
+            "why_it_matters": "",
         }
     except (requests.RequestException, KeyError, ValueError, json.JSONDecodeError):
         return None

@@ -49,7 +49,5 @@ def write_markdown_backup(items: list[dict], report_date: str, path: Path) -> No
             "",
             item.get("summary", ""),
             "",
-            f"值得关注：{item.get('why_it_matters', '')}",
-            "",
         ])
     path.write_text("\n".join(lines), encoding="utf-8")

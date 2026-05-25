@@ -32,6 +32,14 @@ python main.py
 
 如果当天没有抓取到资讯，页面会显示“今日未抓取到符合条件的资讯，请检查信息源或关键词配置。”
 
+## 固定访问链接
+
+GitHub Pages 发布后，固定访问链接通常是：
+
+`https://<username>.github.io/<repository>/`
+
+本项目每天定时生成新的 `site/index.html`，因此你可以一直用同一个链接查看最新一期日报；历史日报会保留在 `site/archive/` 下。
+
 ## 维护 config.yaml
 
 `config.yaml` 包含两类信息源：
@@ -73,7 +81,7 @@ workflow 文件位于：
 6. upload GitHub Pages artifact
 7. deploy to GitHub Pages
 
-默认定时为北京时间每天早上 8:30，对应 UTC 00:30：
+默认定时为北京时间每天早上 8:30 自动运行，对应 UTC 00:30：
 
 ```yaml
 cron: "30 0 * * *"
