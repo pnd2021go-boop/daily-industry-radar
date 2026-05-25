@@ -27,6 +27,7 @@ CATEGORY_ORDER = [
     "consumer_retail",
     "others",
 ]
+MAX_ITEMS_PER_CATEGORY = 5
 
 
 def load_config(path: Path = Path("config.yaml")) -> dict:
@@ -77,33 +78,38 @@ def enrich_items(items: list[dict], max_items: int) -> list[dict]:
     selected: list[dict] = []
     selected_urls: set[str] = set()
 
-    def try_select(item: dict) -> bool:
+    def try_select(item: dict, require_source_text: bool = True) -> bool:
         url = item.get("url", "")
         if url in selected_urls:
             return False
-        if not has_enough_source_text(item):
+        has_source_text = has_enough_source_text(item)
+        if require_source_text and not has_source_text:
             logger.info("Skipping item with insufficient source text: %s", item.get("title", ""))
             return False
+        if not has_source_text:
+            logger.info("Using RSS/search excerpt fallback for: %s", item.get("title", ""))
         selected.append(summarize_item(item))
         if url:
             selected_urls.add(url)
         return True
 
-    per_category_quota = max(2, min(5, max_items // max(1, len(CATEGORY_ORDER))))
-    per_category_scan_limit = max(10, min(15, max_items // 2))
+    per_category_quota = min(MAX_ITEMS_PER_CATEGORY, max(1, max_items))
+    per_category_scan_limit = max(15, per_category_quota * 4)
     for category in CATEGORY_ORDER:
         category_selected = 0
-        for item in groups.get(category, [])[:per_category_scan_limit]:
+        candidates = groups.get(category, [])[:per_category_scan_limit]
+
+        for item in candidates:
             if category_selected >= per_category_quota or len(selected) >= max_items:
                 break
             if try_select(item):
                 category_selected += 1
 
-    remaining = sorted(classified, key=sort_key, reverse=True)[: max_items * 2]
-    for item in remaining:
-        if len(selected) >= max_items:
-            break
-        try_select(item)
+        for item in candidates:
+            if category_selected >= per_category_quota or len(selected) >= max_items:
+                break
+            if try_select(item, require_source_text=False):
+                category_selected += 1
 
     selected.sort(key=sort_key, reverse=True)
     return selected
