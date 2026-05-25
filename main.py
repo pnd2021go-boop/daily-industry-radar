@@ -89,8 +89,8 @@ def enrich_items(items: list[dict], max_items: int) -> list[dict]:
             selected_urls.add(url)
         return True
 
-    per_category_quota = max(2, max_items // max(1, len(CATEGORY_ORDER)))
-    per_category_scan_limit = max(25, max_items)
+    per_category_quota = max(2, min(5, max_items // max(1, len(CATEGORY_ORDER))))
+    per_category_scan_limit = max(10, min(15, max_items // 2))
     for category in CATEGORY_ORDER:
         category_selected = 0
         for item in groups.get(category, [])[:per_category_scan_limit]:
@@ -99,7 +99,7 @@ def enrich_items(items: list[dict], max_items: int) -> list[dict]:
             if try_select(item):
                 category_selected += 1
 
-    remaining = sorted(classified, key=sort_key, reverse=True)
+    remaining = sorted(classified, key=sort_key, reverse=True)[: max_items * 2]
     for item in remaining:
         if len(selected) >= max_items:
             break
