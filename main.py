@@ -13,7 +13,7 @@ from modules.classifier import classify_item
 from modules.deduplicator import deduplicate_items
 from modules.fetchers import fetch_all
 from modules.render_pages import write_pages
-from modules.summarizer import summarize_item
+from modules.summarizer import has_enough_source_text, summarize_item
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -49,8 +49,15 @@ def enrich_items(items: list[dict], max_items: int) -> list[dict]:
         classified.append(item)
 
     classified.sort(key=lambda x: int(x.get("importance_score", 1)), reverse=True)
-    selected = classified[:max_items]
-    return [summarize_item(item) for item in selected]
+    selected = []
+    for item in classified[: max_items * 4]:
+        if not has_enough_source_text(item):
+            logger.info("Skipping item with insufficient source text: %s", item.get("title", ""))
+            continue
+        selected.append(summarize_item(item))
+        if len(selected) >= max_items:
+            break
+    return selected
 
 
 def main() -> None:

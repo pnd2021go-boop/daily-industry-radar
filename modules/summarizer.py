@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 
 ARTICLE_TIMEOUT_SECONDS = 8
 MAX_ARTICLE_CHARS = 6000
+MIN_SOURCE_CHARS = 280
 
 
 def _clean_text(text: str) -> str:
@@ -62,6 +63,10 @@ def _source_text(item: dict) -> str:
     return article_text or raw
 
 
+def has_enough_source_text(item: dict) -> bool:
+    return len(_source_text(item)) >= MIN_SOURCE_CHARS
+
+
 def _summary_paragraph(title: str, text: str, source: str) -> str:
     if not text:
         return f"{source} 发布了题为“{title}”的公开资讯，但当前信息源没有提供足够正文内容。请打开原文链接查看完整报道。"
@@ -77,7 +82,6 @@ def _summary_paragraph(title: str, text: str, source: str) -> str:
     paragraph = " ".join(useful) if useful else text
     return _clip(paragraph, 1400)
 
-
 def fallback_summary(item: dict) -> dict:
     title = _clean_text(item.get("title", ""))
     source_text = _source_text(item)
@@ -88,7 +92,6 @@ def fallback_summary(item: dict) -> dict:
         "summary": _summary_paragraph(title, source_text, source),
         "why_it_matters": "",
     }
-
 
 def _openai_payload(item: dict, model: str) -> dict:
     article_text = _source_text(item)
