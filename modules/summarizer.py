@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 ARTICLE_TIMEOUT_SECONDS = 8
 MAX_ARTICLE_CHARS = 6000
 MIN_SOURCE_CHARS = 280
+TARGET_SUMMARY_WORDS = 210
 
 
 def _clean_text(text: str) -> str:
@@ -67,20 +68,67 @@ def has_enough_source_text(item: dict) -> bool:
     return len(_source_text(item)) >= MIN_SOURCE_CHARS
 
 
+def _word_count(text: str) -> int:
+    words = re.findall(r"[A-Za-z0-9]+(?:[-'][A-Za-z0-9]+)?", text)
+    if words:
+        return len(words)
+    return max(1, len(text) // 2)
+
+
+def _sentence_split(text: str) -> list[str]:
+    parts = re.split(r"(?<=[。！？.!?])\s+", text)
+    return [_clean_text(part) for part in parts if _clean_text(part)]
+
+
+def _is_low_value_sentence(sentence: str) -> bool:
+    lowered = sentence.lower()
+    low_value_terms = [
+        "subscribe", "newsletter", "sign up", "follow us", "click here", "advertisement",
+        "all rights reserved", "cookie", "privacy policy", "terms of use", "read more",
+        "this article is part of", "in our subscribers", "for more on",
+    ]
+    return any(term in lowered for term in low_value_terms)
+
+
 def _summary_paragraph(title: str, text: str, source: str) -> str:
     if not text:
         return f"{source} 发布了题为“{title}”的公开资讯，但当前信息源没有提供足够正文内容。请打开原文链接查看完整报道。"
 
-    sentences = re.split(r"(?<=[。！？.!?])\s+", text)
-    useful = []
-    for sentence in sentences:
-        cleaned = _clean_text(sentence)
-        if len(cleaned) >= 30:
-            useful.append(cleaned)
-        if len(" ".join(useful)) >= 900:
+    sentences = [
+        sentence for sentence in _sentence_split(text)
+        if len(sentence) >= 40 and not _is_low_value_sentence(sentence)
+    ]
+    if not sentences:
+        return _clip(text, 1400)
+
+    title_terms = {
+        term.lower()
+        for term in re.findall(r"[A-Za-z0-9]+|[\u4e00-\u9fff]{2,}", title)
+        if len(term) >= 3
+    }
+    scored = []
+    for index, sentence in enumerate(sentences):
+        lowered = sentence.lower()
+        score = max(0, 8 - index)
+        score += sum(4 for term in title_terms if term in lowered)
+        score += sum(2 for term in ["said", "reported", "announced", "launched", "raised", "policy", "market", "growth", "AI", "retail"] if term.lower() in lowered)
+        score += min(5, _word_count(sentence) // 25)
+        scored.append((score, index, sentence))
+
+    selected = []
+    total_words = 0
+    for _, index, sentence in sorted(scored, key=lambda item: item[0], reverse=True):
+        if index in {item[0] for item in selected}:
+            continue
+        selected.append((index, sentence))
+        total_words += _word_count(sentence)
+        if total_words >= TARGET_SUMMARY_WORDS:
             break
-    paragraph = " ".join(useful) if useful else text
+
+    selected.sort(key=lambda item: item[0])
+    paragraph = " ".join(sentence for _, sentence in selected)
     return _clip(paragraph, 1400)
+
 
 def fallback_summary(item: dict) -> dict:
     title = _clean_text(item.get("title", ""))
@@ -92,6 +140,7 @@ def fallback_summary(item: dict) -> dict:
         "summary": _summary_paragraph(title, source_text, source),
         "why_it_matters": "",
     }
+
 
 def _openai_payload(item: dict, model: str) -> dict:
     article_text = _source_text(item)
