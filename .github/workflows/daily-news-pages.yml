@@ -6,6 +6,8 @@ on:
       - main
   schedule:
     - cron: "30 0 * * *"
+    - cron: "45 0 * * *"
+    - cron: "15 1 * * *"
   workflow_dispatch:
 
 permissions:
