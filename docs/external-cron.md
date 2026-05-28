@@ -106,3 +106,7 @@ After the external cron runs:
 4. Open the Pages URL:
    `https://pnd2021go-boop.github.io/daily-industry-radar/`
 5. Confirm the page date is today.
+
+## Troubleshooting
+
+If the public page is still showing yesterday's date, run the GitHub workflow manually from `Actions -> Daily News Pages -> Run workflow`, then check the latest run logs. Failures in `Configure GitHub Pages` or action downloads are usually GitHub runner or CDN issues; trigger the workflow again after a few minutes.
