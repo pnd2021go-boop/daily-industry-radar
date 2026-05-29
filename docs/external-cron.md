@@ -109,4 +109,4 @@ After the external cron runs:
 
 ## Troubleshooting
 
-If the public page is still showing yesterday's date, run the GitHub workflow manually from `Actions -> Daily News Pages -> Run workflow`, then check the latest run logs. Failures in `Configure GitHub Pages` or action downloads are usually GitHub runner or CDN issues; trigger the workflow again after a few minutes.
+If the public page is still showing yesterday's date, run the GitHub workflow manually from `Actions -> Daily News Pages -> Run workflow`, then check the latest run logs. Failures in `Configure GitHub Pages` or action downloads are usually GitHub runner or CDN issues; trigger the workflow again after a few minutes. When using Codex as the fallback guard, a minimal documentation-only commit can also safely trigger the same `push` workflow.
