@@ -75,6 +75,8 @@ def _select_radar_items(scored: list[dict], max_items: int) -> list[dict]:
         key=lambda item: (int(item.get("total_value_score", 0)), item.get("published_at", "")),
         reverse=True,
     )
+    scan_limit = min(len(ranked), max(80, max_items * 4))
+    candidates = ranked[:scan_limit]
     selected: list[dict] = []
     selected_urls: set[str] = set()
 
@@ -96,12 +98,12 @@ def _select_radar_items(scored: list[dict], max_items: int) -> list[dict]:
             selected_urls.add(url)
         return True
 
-    for item in ranked:
+    for item in candidates:
         try_select(item, require_source_text=True)
         if len(selected) >= max_items:
             break
 
-    for item in ranked:
+    for item in candidates:
         try_select(item, require_source_text=False)
         if len(selected) >= max_items:
             break
