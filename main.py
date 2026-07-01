@@ -86,12 +86,14 @@ def _select_radar_items(scored: list[dict], max_items: int) -> list[dict]:
         url = item.get("url", "")
         if url in selected_urls:
             return False
-        has_source_text = has_enough_source_text(item)
         high_value = int(item.get("total_value_score", 0)) >= 72
+        if require_source_text and not high_value:
+            return False
+        has_source_text = has_enough_source_text(item) if require_source_text else False
         if require_source_text and not has_source_text and not high_value:
             logger.info("Skipping low-context item: %s", item.get("title", ""))
             return False
-        if not has_source_text:
+        if require_source_text and not has_source_text:
             logger.info("Using RSS/search excerpt fallback for: %s", item.get("title", ""))
         selected.append(summarize_item(item))
         if url:
