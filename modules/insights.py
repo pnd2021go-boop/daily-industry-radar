@@ -35,13 +35,14 @@ ACTION_TERMS = [
 HIGH_QUALITY_SOURCES = {
     "techcrunch", "the verge", "retail dive", "modern retail", "business of home",
     "furniture today", "home furnishings news", "shopify", "amazon", "openai", "anthropic",
-    "google", "microsoft", "oracle", "mckinsey", "bain", "deloitte", "gartner",
+    "google blog", "google cloud", "microsoft", "oracle", "mckinsey", "bain", "deloitte", "gartner",
     "reuters", "bloomberg", "wsj", "wall street journal", "cnbc", "homenewsnow",
 }
 
 LOW_QUALITY_SOURCES = {
     "openpr", "ein news", "streetinsider", "ad hoc news", "aol.com", "msn", "zawya",
     "simplywall", "tipranks", "stock titan", "mexc", "manila times", "newsfile",
+    "tradingview", "indexbox", "ein presswire", "the business research company",
 }
 
 NOISE_TERMS = [
@@ -146,10 +147,22 @@ def _score_from_hits(hit_count: int, strong_bonus: int = 0) -> int:
     return max(1, min(5, 1 + hit_count + strong_bonus))
 
 
+def _publisher_text(item: dict) -> str:
+    source = clean_text(item.get("source_name", "")).lower()
+    title = clean_text(item.get("title", "")).lower()
+    host = urlparse(item.get("url", "")).netloc.lower().replace("www.", "")
+    # Google News is a discovery channel, not the original publisher. When RSS
+    # titles contain "Title - Publisher", use the suffix for source weighting.
+    if source.startswith("google news") and " - " in title:
+        publisher = title.rsplit(" - ", 1)[-1]
+        return f"{publisher} {host}"
+    return f"{source} {host}"
+
+
 def source_quality_score(item: dict) -> int:
     source = clean_text(item.get("source_name", "")).lower()
     host = urlparse(item.get("url", "")).netloc.lower().replace("www.", "")
-    combined = f"{source} {host}"
+    combined = _publisher_text(item)
     if any(name in combined for name in HIGH_QUALITY_SOURCES):
         return 5
     if any(name in combined for name in LOW_QUALITY_SOURCES):
@@ -232,7 +245,9 @@ def assign_value_tiers(items: list[dict]) -> list[dict]:
     counts = Counter()
     for item in sorted_items:
         score = int(item.get("total_value_score", 0))
-        if score >= 76 and counts["must_read"] < caps["must_read"]:
+        source_score = int(item.get("source_quality_score", 0) or 0)
+        action_score = int(item.get("actionability_score", 0) or 0)
+        if score >= 76 and source_score >= 3 and action_score >= 2 and counts["must_read"] < caps["must_read"]:
             tier = "must_read"
         elif score >= 62 and counts["worth_scanning"] < caps["worth_scanning"]:
             tier = "worth_scanning"
