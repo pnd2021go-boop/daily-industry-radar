@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
+import logging
 from typing import Any
 from urllib.parse import quote_plus
 
@@ -10,6 +11,7 @@ import requests
 
 
 USER_AGENT = "DailyIndustryRadar/1.0 (+https://github.com/)"
+logger = logging.getLogger("daily-industry-radar.fetchers")
 
 
 def _parse_datetime(entry: Any) -> datetime | None:
@@ -60,7 +62,17 @@ def fetch_rss_sources(sources: list[dict], lookback_hours: int) -> list[dict]:
         url = source.get("url")
         if not url:
             continue
-        parsed = feedparser.parse(url, request_headers={"User-Agent": USER_AGENT})
+        try:
+            parsed = feedparser.parse(url, request_headers={"User-Agent": USER_AGENT})
+        except Exception as exc:
+            logger.warning("Skipping RSS source %s after parse failure: %s", name, exc)
+            continue
+        if getattr(parsed, "bozo", False):
+            logger.warning(
+                "RSS source %s reported parse warning: %s",
+                name,
+                getattr(parsed, "bozo_exception", "unknown"),
+            )
         for entry in parsed.entries:
             item = _entry_to_item(entry, name, source.get("category"))
             if _is_recent(item, since):
