@@ -1,0 +1,2 @@
+Manual workflow trigger marker for 2026-06-30.
+Reason: live page remained on 2026-06-29 at 2026-06-30 08:04 CST.
