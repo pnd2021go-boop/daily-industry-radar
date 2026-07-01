@@ -6,6 +6,7 @@ from html import escape
 from pathlib import Path
 
 from modules.classifier import CATEGORY_LABELS
+from modules.insights import grouped_archive, tier_items
 
 
 CATEGORY_ORDER = [
@@ -16,24 +17,25 @@ CATEGORY_ORDER = [
     "others",
 ]
 
+TIER_LABELS = {
+    "must_read": "Must Read",
+    "worth_scanning": "Worth Scanning",
+    "weak_signals": "Weak Signals",
+    "archive": "Archive",
+}
 
 STYLE = """
-:root{color-scheme:light;--bg:#f5f7fa;--card:#fff;--text:#17202a;--muted:#667085;--line:#e4e7ec;--soft:#eef6f5;--accent:#0f766e;--score:#6d28d9}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,"Noto Sans SC",sans-serif;font-size:16px;line-height:1.65}
-a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
-.wrap{width:min(980px,100%);margin:0 auto;padding:20px 14px 48px}
-header{padding:10px 2px 20px;border-bottom:1px solid var(--line)}h1{margin:0;font-size:30px;line-height:1.15;letter-spacing:0}.date{margin-top:8px;color:var(--muted);font-size:15px}
-.section{margin-top:24px}.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.section h2{font-size:21px;margin:0}.section-note{color:var(--muted);font-size:13px}
-.top{display:grid;gap:10px;counter-reset:top}.top-item{position:relative;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:13px 13px 13px 44px}
-.top-item:before{counter-increment:top;content:counter(top);position:absolute;left:13px;top:14px;width:22px;height:22px;border-radius:999px;background:var(--soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:13px}
-.top-item strong{display:block;font-size:16px;line-height:1.35}.top-item span{display:block;color:var(--muted);font-size:14px;margin-top:6px}
-.grid{display:grid;gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:15px}
-.meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.pill{font-size:12px;line-height:1;border-radius:999px;padding:6px 8px;background:var(--soft);color:var(--accent)}.score{background:#f1ecfe;color:var(--score)}
-.card h3{margin:0 0 9px;font-size:18px;line-height:1.35}.one{font-weight:650;margin:0 0 10px;color:#1f2937}.label{margin:13px 0 5px;color:var(--muted);font-size:13px;font-weight:700}.summary{margin:0;color:#344054;white-space:normal;overflow:visible}
-.source{display:flex;flex-wrap:wrap;gap:6px;color:var(--muted);font-size:13px;margin-top:13px;padding-top:11px;border-top:1px solid var(--line)}.empty{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:18px;color:var(--muted)}
-.archive-list{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 14px}.archive-list li{padding:8px 0;border-bottom:1px solid var(--line)}.archive-list li:last-child{border-bottom:0}
-footer{margin-top:30px;color:var(--muted);font-size:13px}
-@media (min-width:760px){.wrap{padding:30px 22px 58px}h1{font-size:38px}.card{padding:18px}}
+:root{color-scheme:light;--bg:#f3f1ea;--paper:#fffdf8;--card:#ffffff;--ink:#1f2933;--muted:#667085;--line:#e5dfd2;--soft:#f5efe2;--soft2:#eef4f1;--accent:#0f5f56;--accent2:#9a5b18;--danger:#9f3a38;--score:#344054;--shadow:0 10px 26px rgba(31,41,51,.07)}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top left,#fff8e7 0,#f3f1ea 34%,#edf2ef 100%);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,"Noto Sans SC",sans-serif;font-size:16px;line-height:1.66}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}.wrap{width:min(1080px,100%);margin:0 auto;padding:18px 14px 52px}
+.hero{background:linear-gradient(135deg,#173f3a,#28594f 58%,#8a5a24);color:#fff;border-radius:18px;padding:22px 18px;box-shadow:var(--shadow)}.hero h1{margin:0;font-size:31px;line-height:1.12;letter-spacing:-.02em}.date{margin-top:8px;color:rgba(255,255,255,.78);font-size:14px}.judgement{margin:18px 0 0;font-size:19px;line-height:1.45;font-weight:720;max-width:900px}.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.tag{border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:5px 9px;font-size:12px}
+.section{margin-top:24px}.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}.section h2{font-size:22px;margin:0;letter-spacing:-.01em}.section-note{color:var(--muted);font-size:13px}.brief{display:grid;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}.brief p{margin:0;color:#344054}
+.grid{display:grid;gap:14px}.grid.two{grid-template-columns:1fr}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 4px 16px rgba(31,41,51,.04)}.card.must{border-color:#d5b06a;background:linear-gradient(180deg,#fffdf7,#fff)}.card h3{margin:0 0 10px;font-size:18px;line-height:1.35}.meta{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}.pill{font-size:12px;line-height:1;border-radius:999px;padding:6px 8px;background:var(--soft2);color:var(--accent);font-weight:650}.pill.score{background:#f1f5f9;color:var(--score)}.pill.total{background:#fff2cc;color:#7a4b00}.pill.low{background:#f8e8e7;color:var(--danger)}
+.one{font-weight:700;margin:0 0 10px;color:#1f2937}.field{margin-top:12px}.label{margin:0 0 4px;color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.text{margin:0;color:#344054}.source{display:flex;flex-wrap:wrap;gap:7px;color:var(--muted);font-size:13px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.transfer{background:linear-gradient(180deg,#ffffff,#fbf7ed);border:1px solid #e6d7bb}.transfer h3{color:#173f3a}.related{margin:12px 0 0;padding-left:18px;color:#475467}.related li{margin:5px 0}.signal{border-left:4px solid var(--accent2)}.empty{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;color:var(--muted)}
+details.archive{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px}details.archive>summary{cursor:pointer;font-weight:800;font-size:18px}.archive-section{margin-top:14px}.archive-section h3{font-size:16px;margin:14px 0 8px}.mini-list{display:grid;gap:9px}.mini{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px}.mini-title{font-weight:700}.mini-meta{display:flex;flex-wrap:wrap;gap:7px;color:var(--muted);font-size:12px;margin-top:6px}
+.archive-list{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 14px}.archive-list li{padding:8px 0;border-bottom:1px solid var(--line)}.archive-list li:last-child{border-bottom:0}footer{margin-top:30px;color:var(--muted);font-size:13px}
+@media (min-width:760px){.wrap{padding:30px 22px 64px}.hero{padding:30px 28px}.hero h1{font-size:42px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.card{padding:18px}.brief{padding:18px}}
 """
 
 
@@ -53,71 +55,153 @@ def _html_page(title: str, body: str) -> str:
 """
 
 
-def select_top_items(items: list[dict], count: int = 5) -> list[dict]:
-    selected: list[dict] = []
-    used_categories: set[str] = set()
-    sorted_items = sorted(items, key=lambda x: int(x.get("importance_score", 1)), reverse=True)
-    for item in sorted_items:
-        if item.get("category") not in used_categories:
-            selected.append(item)
-            used_categories.add(item.get("category", "others"))
-        if len(selected) >= count:
-            return selected
-    for item in sorted_items:
-        if item not in selected:
-            selected.append(item)
-        if len(selected) >= count:
-            break
-    return selected
+def _score_badges(item: dict) -> str:
+    total = int(item.get("total_value_score", 0) or 0)
+    total_class = "total" if total >= 70 else "low" if total < 50 else "score"
+    return "".join([
+        f'<span class="pill {total_class}">总分 {escape(str(total))}</span>',
+        f'<span class="pill score">业务 {escape(str(item.get("business_relevance_score", "-")))}/5</span>',
+        f'<span class="pill score">迁移 {escape(str(item.get("knowledge_transfer_score", "-")))}/5</span>',
+        f'<span class="pill score">行动 {escape(str(item.get("actionability_score", "-")))}/5</span>',
+        f'<span class="pill score">来源 {escape(str(item.get("source_quality_score", "-")))}/5</span>',
+    ])
 
 
-def _card(item: dict) -> str:
+def _category_pill(item: dict) -> str:
     category = item.get("category", "others")
+    return f'<span class="pill">{escape(CATEGORY_LABELS.get(category, "其他观察"))}</span>'
+
+
+def _field(label: str, value: str) -> str:
+    if not value:
+        return ""
+    return f'<div class="field"><div class="label">{escape(label)}</div><p class="text">{escape(value)}</p></div>'
+
+
+def _insight_card(item: dict, must: bool = False) -> str:
+    card_class = "card must" if must else "card"
     return f"""
-<article class="card">
-  <div class="meta">
-    <span class="pill">{escape(CATEGORY_LABELS.get(category, "其他观察"))}</span>
-    <span class="pill score">重要性 {escape(str(item.get("importance_score", "1")))}/5</span>
-  </div>
+<article class="{card_class}">
+  <div class="meta">{_category_pill(item)}{_score_badges(item)}</div>
   <h3>{escape(item.get("title", ""))}</h3>
   <p class="one">{escape(item.get("one_sentence", ""))}</p>
-  <div class="label">摘要</div>
-  <p class="summary">{escape(item.get("summary", ""))}</p>
+  {_field("摘要", item.get("summary_zh") or item.get("summary", ""))}
+  {_field("为什么值得看", item.get("why_it_matters", ""))}
+  {_field("对我的启发", item.get("knowledge_transfer", ""))}
+  {_field("建议动作", item.get("suggested_action", ""))}
   <div class="source"><span>{escape(item.get("source_name", ""))}</span><span>{escape(item.get("published_at", ""))}</span><a href="{escape(item.get("url", ""))}" rel="noopener noreferrer" target="_blank">原文链接</a></div>
 </article>
 """
 
 
-def render_daily_page(items: list[dict], report_date: str, title: str, top_count: int = 5) -> str:
-    top_items = select_top_items(items, top_count)
-    top_html = "".join(
-        f'<div class="top-item"><strong>{escape(item.get("title", ""))}</strong><span>{escape(item.get("one_sentence", ""))}</span></div>'
-        for item in top_items
+def _transfer_card(card: dict) -> str:
+    related = "".join(
+        f'<li><a href="{escape(item.get("url", ""))}" rel="noopener noreferrer" target="_blank">{escape(item.get("title", ""))}</a></li>'
+        for item in card.get("related_news", [])
     )
-    if not items:
-        top_html = '<div class="empty">今日未抓取到符合条件的资讯，请检查信息源或关键词配置。</div>'
+    return f"""
+<article class="card transfer">
+  <h3>{escape(card.get("theme_name", ""))}</h3>
+  {_field("发生了什么", card.get("what_happened", ""))}
+  {_field("为什么重要", card.get("why_important", ""))}
+  {_field("可迁移到哪里", card.get("transfer_to", ""))}
+  {_field("对 ModernMate / Radar / Echo 的启发", card.get("inspiration", ""))}
+  {_field("可以尝试的一个小动作", card.get("small_action", ""))}
+  <div class="label">关联新闻</div>
+  <ul class="related">{related}</ul>
+</article>
+"""
 
-    grouped: dict[str, list[dict]] = defaultdict(list)
-    for item in items:
-        grouped[item.get("category", "others")].append(item)
 
+def _weak_signal(signal: dict) -> str:
+    item = signal.get("item", {})
+    return f"""
+<article class="card signal">
+  <div class="meta">{_category_pill(item)}{_score_badges(item)}</div>
+  {_field("信号", signal.get("signal", ""))}
+  {_field("为什么暂时只是弱信号", signal.get("why_weak", ""))}
+  {_field("后续需要观察什么", signal.get("watch_next", ""))}
+  <div class="source"><span>{escape(item.get("source_name", ""))}</span><a href="{escape(item.get("url", ""))}" rel="noopener noreferrer" target="_blank">原文链接</a></div>
+</article>
+"""
+
+
+def _mini_item(item: dict) -> str:
+    noise = item.get("noise_reason", "")
+    noise_html = f'<div class="mini-meta"><span>降权：{escape(noise)}</span></div>' if noise else ""
+    return f"""
+<div class="mini">
+  <div class="mini-title"><a href="{escape(item.get("url", ""))}" rel="noopener noreferrer" target="_blank">{escape(item.get("title", ""))}</a></div>
+  <div class="mini-meta"><span>{escape(item.get("source_name", ""))}</span><span>{escape(item.get("published_at", ""))}</span><span>总分 {escape(str(item.get("total_value_score", "")))}</span></div>
+  {noise_html}
+</div>
+"""
+
+
+def _archive_html(items: list[dict]) -> str:
+    grouped = grouped_archive(items)
     sections = []
     for category in CATEGORY_ORDER:
-        cards = "".join(_card(item) for item in grouped.get(category, []))
-        if cards:
-            sections.append(f'<section class="section"><div class="section-head"><h2>{CATEGORY_LABELS[category]}</h2><span class="section-note">{len(grouped.get(category, []))} 条</span></div><div class="grid">{cards}</div></section>')
+        category_items = grouped.get(category, [])
+        if not category_items:
+            continue
+        mini_items = "".join(_mini_item(item) for item in category_items)
+        sections.append(f'<div class="archive-section"><h3>{escape(CATEGORY_LABELS[category])} · {len(category_items)} 条</h3><div class="mini-list">{mini_items}</div></div>')
+    if not sections:
+        return '<div class="empty">暂无归档资讯。</div>'
+    return f'<details class="archive"><summary>原始资讯归档 Archive（默认折叠）</summary>{"".join(sections)}</details>'
+
+
+def render_daily_page(items: list[dict], report_date: str, title: str, top_count: int = 5, radar_context: dict | None = None) -> str:
+    radar_context = radar_context or {}
+    executive = radar_context.get("executive_brief", {})
+    keywords = executive.get("keywords", [])
+    tags_html = "".join(f'<span class="tag">{escape(str(tag))}</span>' for tag in keywords)
+    judgement = executive.get("judgement", "今天信息源已更新，请优先阅读高价值条目。")
+    brief_sentences = executive.get("sentences", [])
+    brief_html = "".join(f'<p>{escape(sentence)}</p>' for sentence in brief_sentences)
+    if not brief_html:
+        brief_html = '<p>今日未抓取到符合条件的资讯，请检查信息源或关键词配置。</p>'
+
+    must_items = tier_items(items, "must_read")[:3]
+    worth_items = tier_items(items, "worth_scanning")[:5]
+    transfer_cards = radar_context.get("knowledge_cards", [])
+    weak_signals = radar_context.get("weak_signals", [])[:5]
+
+    must_html = "".join(_insight_card(item, must=True) for item in must_items) or '<div class="empty">今天没有达到 Must Read 阈值的资讯。</div>'
+    worth_html = "".join(_insight_card(item) for item in worth_items) or '<div class="empty">今天没有额外的 Worth Scanning 条目。</div>'
+    transfer_html = "".join(_transfer_card(card) for card in transfer_cards) or '<div class="empty">今天暂未形成稳定的知识迁移主题。</div>'
+    weak_html = "".join(_weak_signal(signal) for signal in weak_signals) or '<div class="empty">今天没有需要单独标记的弱信号。</div>'
 
     body = f"""
-<header>
+<header class="hero">
   <h1>{escape(title)}</h1>
-  <div class="date">{escape(report_date)} · 面向公开资讯的中性摘要</div>
+  <div class="date">{escape(report_date)} · 每日行业知识雷达 / 业务洞察看板</div>
+  <p class="judgement">{escape(judgement)}</p>
+  <div class="tags">{tags_html}</div>
 </header>
 <section class="section">
-  <div class="section-head"><h2>今日重点 Top {top_count}</h2><span class="section-note">每日自动更新</span></div>
-  <div class="top">{top_html}</div>
+  <div class="section-head"><h2>Executive Brief</h2><span class="section-note">3-5 句结构性判断</span></div>
+  <div class="brief">{brief_html}</div>
 </section>
-{''.join(sections)}
-<footer>所有内容均基于公开标题、来源、发布时间和原文链接生成；请以原文为准。</footer>
+<section class="section">
+  <div class="section-head"><h2>Must Read</h2><span class="section-note">最多 3 条</span></div>
+  <div class="grid">{must_html}</div>
+</section>
+<section class="section">
+  <div class="section-head"><h2>Knowledge Transfer Cards</h2><span class="section-note">把新闻转成可迁移洞察</span></div>
+  <div class="grid two">{transfer_html}</div>
+</section>
+<section class="section">
+  <div class="section-head"><h2>Worth Scanning</h2><span class="section-note">最多 5 条</span></div>
+  <div class="grid two">{worth_html}</div>
+</section>
+<section class="section">
+  <div class="section-head"><h2>Weak Signals</h2><span class="section-note">观察池</span></div>
+  <div class="grid two">{weak_html}</div>
+</section>
+<section class="section">{_archive_html(items)}</section>
+<footer>本页面基于公开资讯生成，强调筛选、判断和知识迁移；低价值或证据不足内容会降权进入 Archive。</footer>
 """
     return _html_page(f"{title} - {report_date}", body)
 
@@ -128,7 +212,7 @@ def render_archive_index(archive_dir: Path, title: str) -> str:
     if not items:
         items = "<li>暂无历史日报</li>"
     body = f"""
-<header>
+<header class="hero">
   <h1>{escape(title)} 历史日报</h1>
   <div class="date">更新于 {escape(datetime.now().strftime("%Y-%m-%d %H:%M"))}</div>
 </header>
@@ -138,11 +222,11 @@ def render_archive_index(archive_dir: Path, title: str) -> str:
     return _html_page(f"{title} Archive", body)
 
 
-def write_pages(items: list[dict], report_date: str, site_title: str, top_count: int) -> None:
+def write_pages(items: list[dict], report_date: str, site_title: str, top_count: int, radar_context: dict | None = None) -> None:
     site_dir = Path("site")
     archive_dir = site_dir / "archive"
     archive_dir.mkdir(parents=True, exist_ok=True)
-    html = render_daily_page(items, report_date, site_title, top_count)
+    html = render_daily_page(items, report_date, site_title, top_count, radar_context=radar_context)
     (site_dir / "index.html").write_text(html, encoding="utf-8")
     (archive_dir / f"{report_date}.html").write_text(html, encoding="utf-8")
     (archive_dir / "index.html").write_text(render_archive_index(archive_dir, site_title), encoding="utf-8")
