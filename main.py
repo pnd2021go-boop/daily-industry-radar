@@ -12,6 +12,7 @@ from modules.archive import append_news_archive, write_markdown_backup
 from modules.classifier import classify_item
 from modules.deduplicator import deduplicate_items
 from modules.fetchers import fetch_all
+from modules.insights import apply_radar_scores, assign_value_tiers, build_radar_context
 from modules.render_pages import write_pages
 from modules.summarizer import has_enough_source_text, summarize_item
 
@@ -46,8 +47,8 @@ def report_date(config: dict) -> str:
     return datetime.now(tz).strftime("%Y-%m-%d")
 
 
-def enrich_items(items: list[dict], max_items: int) -> list[dict]:
-    classified: list[dict] = []
+def _classify_and_score(items: list[dict]) -> list[dict]:
+    scored: list[dict] = []
     for item in items:
         classification = classify_item(
             item.get("title", ""),
@@ -56,35 +57,37 @@ def enrich_items(items: list[dict], max_items: int) -> list[dict]:
         )
         item["category"] = classification.category
         item["importance_score"] = classification.importance_score
-        classified.append(item)
+        apply_radar_scores(item)
+        scored.append(item)
 
     for category in CATEGORY_ORDER:
         logger.info(
             "Classified %s items as %s",
-            sum(1 for item in classified if item.get("category") == category),
+            sum(1 for item in scored if item.get("category") == category),
             category,
         )
+    return scored
 
-    def sort_key(item: dict) -> tuple[int, str]:
-        return int(item.get("importance_score", 1)), item.get("published_at", "")
 
-    groups: dict[str, list[dict]] = {category: [] for category in CATEGORY_ORDER}
-    for item in classified:
-        groups.setdefault(item.get("category", "others"), []).append(item)
-
-    for grouped_items in groups.values():
-        grouped_items.sort(key=sort_key, reverse=True)
-
+def _select_radar_items(scored: list[dict], max_items: int) -> list[dict]:
+    ranked = sorted(
+        scored,
+        key=lambda item: (int(item.get("total_value_score", 0)), item.get("published_at", "")),
+        reverse=True,
+    )
     selected: list[dict] = []
     selected_urls: set[str] = set()
 
     def try_select(item: dict, require_source_text: bool = True) -> bool:
+        if len(selected) >= max_items:
+            return False
         url = item.get("url", "")
         if url in selected_urls:
             return False
         has_source_text = has_enough_source_text(item)
-        if require_source_text and not has_source_text:
-            logger.info("Skipping item with insufficient source text: %s", item.get("title", ""))
+        high_value = int(item.get("total_value_score", 0)) >= 72
+        if require_source_text and not has_source_text and not high_value:
+            logger.info("Skipping low-context item: %s", item.get("title", ""))
             return False
         if not has_source_text:
             logger.info("Using RSS/search excerpt fallback for: %s", item.get("title", ""))
@@ -93,26 +96,22 @@ def enrich_items(items: list[dict], max_items: int) -> list[dict]:
             selected_urls.add(url)
         return True
 
-    per_category_quota = min(MAX_ITEMS_PER_CATEGORY, max(1, max_items))
-    per_category_scan_limit = max(15, per_category_quota * 4)
-    for category in CATEGORY_ORDER:
-        category_selected = 0
-        candidates = groups.get(category, [])[:per_category_scan_limit]
+    for item in ranked:
+        try_select(item, require_source_text=True)
+        if len(selected) >= max_items:
+            break
 
-        for item in candidates:
-            if category_selected >= per_category_quota or len(selected) >= max_items:
-                break
-            if try_select(item):
-                category_selected += 1
+    for item in ranked:
+        try_select(item, require_source_text=False)
+        if len(selected) >= max_items:
+            break
 
-        for item in candidates:
-            if category_selected >= per_category_quota or len(selected) >= max_items:
-                break
-            if try_select(item, require_source_text=False):
-                category_selected += 1
+    return assign_value_tiers(selected)
 
-    selected.sort(key=sort_key, reverse=True)
-    return selected
+
+def enrich_items(items: list[dict], max_items: int) -> list[dict]:
+    scored = _classify_and_score(items)
+    return _select_radar_items(scored, max_items)
 
 
 def main() -> None:
@@ -134,16 +133,18 @@ def main() -> None:
 
     max_items = int(site_config.get("max_items", 40))
     items = enrich_items(unique_items, max_items)
-    logger.info("Prepared %s final items", len(items))
+    radar_context = build_radar_context(items)
+    logger.info("Prepared %s final radar items", len(items))
 
     write_pages(
         items=items,
         report_date=date,
         site_title=site_config.get("title", "Daily Industry Radar"),
         top_count=int(site_config.get("top_count", 5)),
+        radar_context=radar_context,
     )
     append_news_archive(items, date, Path("data/news_archive.csv"))
-    write_markdown_backup(items, date, Path(f"reports/{date}.md"))
+    write_markdown_backup(items, date, Path(f"reports/{date}.md"), radar_context=radar_context)
     logger.info("Generated site/index.html, archive page, CSV archive, and Markdown backup")
 
 
