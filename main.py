@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import yaml
 from dotenv import load_dotenv
 
-from modules.archive import append_news_archive, write_markdown_backup
+from modules.archive import append_news_archive, load_news_archive, write_markdown_backup
 from modules.classifier import classify_item
 from modules.deduplicator import deduplicate_items
 from modules.fetchers import fetch_all, resolve_original_url
@@ -157,6 +157,19 @@ def main() -> None:
 
     max_items = int(site_config.get("max_items", 40))
     items = enrich_items(unique_items, max_items)
+    minimum_items = int(site_config.get("minimum_items", 8))
+    if len(items) < minimum_items:
+        cached = load_news_archive(Path("data/news_archive.csv"), date)
+        fresh_urls = {item.get("url") for item in items}
+        restored = [item for item in cached if item.get("url") not in fresh_urls]
+        restore_count = min(len(restored), max(0, max_items - len(items)))
+        if restore_count:
+            items.extend(restored[:restore_count])
+            logger.warning(
+                "Fresh source set fell below %s items; restored %s same-day cached items",
+                minimum_items,
+                restore_count,
+            )
     radar_context = build_radar_context(items)
     logger.info("Prepared %s final radar items", len(items))
 

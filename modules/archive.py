@@ -15,6 +15,35 @@ FIELDNAMES = [
     "summary_substantive", "relevance_reason", "published_at", "url",
 ]
 
+INTEGER_FIELDS = {
+    "business_relevance_score", "knowledge_transfer_score", "actionability_score",
+    "source_quality_score", "total_value_score", "source_context_score",
+}
+BOOLEAN_FIELDS = {"is_us_priority", "summary_substantive"}
+
+
+def load_news_archive(path: Path, report_date: str) -> list[dict]:
+    """Load the last successful same-day snapshot for transient feed failures."""
+    if not path.exists():
+        return []
+    items: list[dict] = []
+    with path.open("r", encoding="utf-8-sig", newline="") as f:
+        for row in csv.DictReader(f):
+            if row.get("date") != report_date or not row.get("url"):
+                continue
+            item = dict(row)
+            for field in INTEGER_FIELDS:
+                try:
+                    item[field] = int(item.get(field) or 0)
+                except ValueError:
+                    item[field] = 0
+            for field in BOOLEAN_FIELDS:
+                item[field] = str(item.get(field, "")).lower() in {"1", "true", "yes"}
+            item["summary"] = item.get("summary_zh", "")
+            item["is_authoritative_source"] = True
+            items.append(item)
+    return items
+
 
 def append_news_archive(items: list[dict], report_date: str, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
