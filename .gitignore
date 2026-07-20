@@ -2,3 +2,7 @@
 __pycache__/
 *.py[cod]
 .env
+site/index.html
+site/archive/
+data/*.csv
+reports/*.md

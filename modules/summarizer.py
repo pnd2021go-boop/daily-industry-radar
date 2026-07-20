@@ -72,6 +72,23 @@ def has_enough_source_text(item: dict) -> bool:
     return len(_source_text(item)) >= MIN_SOURCE_CHARS
 
 
+def source_context_profile(item: dict) -> tuple[int, str]:
+    length = len(_source_text(item))
+    if length >= 400:
+        return 2, "正文充分"
+    if length >= 100:
+        return 1, "媒体摘要"
+    return 0, "信息有限"
+
+
+def hydrate_source_text(item: dict) -> dict:
+    _source_text(item)
+    score, label = source_context_profile(item)
+    item["source_context_score"] = score
+    item["source_context_label"] = label
+    return item
+
+
 def _word_count(text: str) -> int:
     words = re.findall(r"[A-Za-z0-9]+(?:[-'][A-Za-z0-9]+)?", text)
     if words:
@@ -141,6 +158,19 @@ def _matched_text(item: dict, field: str) -> str:
     return str(values)
 
 
+def _fallback_action(item: dict) -> str:
+    dimensions = set(item.get("matched_business_dimensions") or [])
+    if "供应链" in dimensions:
+        return "把事件涉及的政策、成本、交期和库存影响加入供应链观察表，并设定下一次复核时间。"
+    if "家具家居" in dimensions:
+        return "把新闻中的品类、价格带、渠道和消费场景拆成四列，与现有家具产品线做一次对照。"
+    if "品牌营销" in dimensions or "零售科技" in dimensions:
+        return "提取新闻中的用户触点和转化机制，形成一个可在 ModernMate 内容或投放中验证的小实验。"
+    if "AI工作流" in dimensions:
+        return "选取新闻中最具体的自动化场景，写出输入、判断、输出和人工复核点，评估是否纳入 Radar 或 Echo。"
+    return "记录事件主体、变化、受影响环节和待验证假设，在周度复盘时检查是否出现第二个同类信号。"
+
+
 def fallback_summary(item: dict) -> dict:
     title = _clean_text(item.get("title", ""))
     source_text = _source_text(item)
@@ -151,10 +181,11 @@ def fallback_summary(item: dict) -> dict:
     score = int(item.get("total_value_score", 0))
     noise_reason = item.get("noise_reason", "")
 
-    why = "这条资讯值得关注，因为它连接了" + business_dims + "，可能影响渠道、产品、营销或流程判断。"
-    implication = f"可作为 {business_dims} 方向的外部信号，用来校准品类机会、渠道动作或 AI 工作流优先级。"
-    transfer = f"可迁移到 {transfer_dims}：提取其中的决策机制、用户行为变化或平台规则，而不是只记录事件本身。"
-    action = "把这条新闻转成一个 10 分钟讨论点：它改变了哪个假设、影响哪个业务环节、是否值得连续观察。"
+    relevance = item.get("relevance_reason") or f"直接关联 {business_dims}。"
+    why = relevance
+    implication = f"该事件可用于校准 {business_dims} 的现有判断；在获得更多数据前，应把它视为外部证据而非确定结论。"
+    transfer = f"可迁移到 {transfer_dims}，重点提取事件中的规则变化、用户行为、渠道机制或执行流程。"
+    action = _fallback_action(item)
 
     if score < 55 and noise_reason:
         why = "这条资讯暂时只作为弱信号保留，主要原因是：" + noise_reason + "。"
@@ -162,13 +193,14 @@ def fallback_summary(item: dict) -> dict:
         action = "记录关键词和受影响平台，下次出现同类事件时再升级为趋势判断。"
 
     return {
-        "one_sentence": _clip(summary_zh or title, 44),
+        "one_sentence": _clip(title, 72),
         "summary": summary_zh,
         "summary_zh": summary_zh,
         "why_it_matters": _clip(why, 260),
         "business_implication": _clip(implication, 260),
         "knowledge_transfer": _clip(transfer, 260),
         "suggested_action": _clip(action, 220),
+        "relevance_reason": relevance,
         "noise_reason": noise_reason,
     }
 
@@ -180,6 +212,10 @@ def _openai_payload(item: dict, model: str) -> dict:
         "rss_excerpt": _clip(_clean_text(item.get("summary_raw", "")), 500),
         "article_excerpt": _clip(article_text, MAX_ARTICLE_CHARS),
         "source_name": item.get("source_name", ""),
+        "discovery_source": item.get("discovery_source", ""),
+        "source_authority_label": item.get("source_authority_label", ""),
+        "is_us_priority": item.get("is_us_priority", False),
+        "source_context_label": item.get("source_context_label", ""),
         "published_at": item.get("published_at", ""),
         "url": item.get("url", ""),
         "category": item.get("category", ""),
@@ -190,6 +226,7 @@ def _openai_payload(item: dict, model: str) -> dict:
         "total_value_score": item.get("total_value_score", ""),
         "matched_business_dimensions": item.get("matched_business_dimensions", []),
         "matched_transfer_dimensions": item.get("matched_transfer_dimensions", []),
+        "relevance_reason": item.get("relevance_reason", ""),
         "noise_reason": item.get("noise_reason", ""),
     }
     return {
@@ -198,20 +235,24 @@ def _openai_payload(item: dict, model: str) -> dict:
             {
                 "role": "system",
                 "content": (
-                    "你是面向跨境家具、ModernMate 品牌营销、品类规划和 AI 工作流的行业知识雷达分析师。"
-                    "只基于用户给出的公开资讯字段输出判断，不要编造事实，不要泄露或假设内部信息。"
-                    "核心任务不是复述新闻，而是筛选、判断和知识迁移。必须输出 JSON。"
+                    "你是面向跨境家具、ModernMate 品牌营销、品类规划和 AI 工作流的行业情报编辑。"
+                    "只基于给出的权威公开资讯输出，不要补写原文没有的事实、数字、因果或内部信息。"
+                    "先让读者完整理解新闻事实，再解释业务相关性和行动含义。必须输出 JSON。"
                 ),
             },
             {
                 "role": "user",
                 "content": (
                     "请为这条公开资讯生成以下字段："
-                    "one_sentence(20-40字), summary_zh(80-160字中文摘要), why_it_matters(为什么重要), "
+                    "one_sentence(25-55字，写清核心事件), summary_zh(120-220字中文事实摘要), "
+                    "relevance_reason(明确指出与哪些业务环节直接相关以及连接逻辑), why_it_matters(为什么重要), "
                     "business_implication(对跨境电商/家具家居/品牌营销/AI工作流的潜在影响), "
                     "knowledge_transfer(可迁移到品类规划、ModernMate、社媒、Hawkeye/Radar/Echo或组织流程的洞察), "
                     "suggested_action(一个可执行的小动作), noise_reason(如果分数低或噪音高，说明降权原因；否则可为空)。"
-                    "不要复制标题当摘要；不要写泛泛的'值得关注'；如果证据不足，要明确谨慎。"
+                    "summary_zh 必须先交代主体、动作、对象、时间或阶段、关键数字或范围、当前结果；"
+                    "原文没有数字时不要虚构。摘要不得写业务建议，不得复制或只翻译标题。"
+                    "relevance_reason 必须使用给出的匹配维度并解释连接，不要只写'与业务相关'。"
+                    "why_it_matters 与 business_implication 不得重复；证据不足时明确写出尚不确定的部分。"
                     f"\n公开资讯字段：{json.dumps(source_data, ensure_ascii=False)}"
                 ),
             },
@@ -239,13 +280,14 @@ def ai_summary(item: dict) -> dict | None:
         parsed = json.loads(content)
         fallback = fallback_summary(item)
         return {
-            "one_sentence": _clip(_clean_text(parsed.get("one_sentence", "")) or fallback["one_sentence"], 44),
+            "one_sentence": _clip(_clean_text(parsed.get("one_sentence", "")) or fallback["one_sentence"], 72),
             "summary": _clip(_clean_text(parsed.get("summary_zh", "")) or fallback["summary_zh"], 1000),
             "summary_zh": _clip(_clean_text(parsed.get("summary_zh", "")) or fallback["summary_zh"], 1000),
             "why_it_matters": _clip(_clean_text(parsed.get("why_it_matters", "")) or fallback["why_it_matters"], 320),
             "business_implication": _clip(_clean_text(parsed.get("business_implication", "")) or fallback["business_implication"], 320),
             "knowledge_transfer": _clip(_clean_text(parsed.get("knowledge_transfer", "")) or fallback["knowledge_transfer"], 320),
             "suggested_action": _clip(_clean_text(parsed.get("suggested_action", "")) or fallback["suggested_action"], 260),
+            "relevance_reason": _clip(_clean_text(parsed.get("relevance_reason", "")) or fallback["relevance_reason"], 260),
             "noise_reason": _clip(_clean_text(parsed.get("noise_reason", "")) or item.get("noise_reason", ""), 260),
         }
     except (requests.RequestException, KeyError, ValueError, json.JSONDecodeError):
@@ -253,6 +295,15 @@ def ai_summary(item: dict) -> dict | None:
 
 
 def summarize_item(item: dict) -> dict:
-    summary = ai_summary(item) or fallback_summary(item)
+    if "source_context_score" not in item:
+        hydrate_source_text(item)
+    generated = ai_summary(item)
+    summary = generated or fallback_summary(item)
     item.update(summary)
+    item["summary_generation_label"] = "AI 中文事实摘要" if generated else "原文事实摘录"
+    summary_text = _clean_text(item.get("summary_zh") or item.get("summary", "")).lower()
+    title = _clean_text(item.get("title", "")).lower()
+    source = _clean_text(item.get("source_name", "")).lower()
+    remainder = summary_text.replace(title, "").replace(source, "").strip(" .,:;|-–")
+    item["summary_substantive"] = len(remainder) >= 60
     return item

@@ -69,3 +69,7 @@ google_news:
       - "Gen Z consumer trends"
       - "lifestyle trends"
       - "brand marketing trends"
+
+bing_news:
+  enabled: true
+  language: "en-US"

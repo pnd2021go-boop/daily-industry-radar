@@ -16,14 +16,27 @@ GitHub Pages 固定访问地址：
 
 ## 新版内容逻辑
 
-日报会先抓取候选资讯，再进行多维评分和分层，而不是直接按行业标签平铺展示。
+日报会先抓取候选资讯、识别原始发布者，再进行来源准入、多维评分和分层，而不是直接按行业标签平铺展示。Bing News 是优先发现通道，可提供原媒体直链和摘要；Google News 作为补充。两者都不参与来源评分，页面展示和评分只使用其背后的原始媒体。
+
+### 权威来源准入
+
+资讯范围仍覆盖跨境电商、家具家居、AI 与科技、消费零售、品牌营销和供应链，但主推送只保留以下来源：
+
+- 美国权威商业与科技媒体，例如 Reuters、Bloomberg、WSJ、CNBC、TechCrunch、The Verge、Wired。
+- 美国行业垂直媒体，例如 Retail Dive、Modern Retail、Business of Home、Furniture Today、Home News Now、Digital Commerce 360、Supply Chain Dive。
+- 全球权威媒体、头部咨询研究机构，以及 Amazon、Shopify、OpenAI、Anthropic、Google、Microsoft 等官方来源。
+
+美国权威媒体、美国行业垂直媒体和官方来源会获得优先权。openPR、EIN、SEO 趋势稿、纯聚合站、地方性弱相关新闻和来源不明内容不会进入主页面，即使标题命中了关键词。
 
 每条资讯会生成以下评分：
 
 - `business_relevance_score`：业务相关性，判断是否直接关联跨境电商、家具家居、Amazon / Shopify / Wayfair / DTC、AI Agent / workflow、零售科技、供应链、品牌营销、社媒和内容电商。
 - `knowledge_transfer_score`：知识迁移价值，判断是否能迁移到品类规划、产品机会识别、家具系列开发、ModernMate 品牌营销、社媒内容策略、Hawkeye / Radar / Echo 等 AI 工作流、组织流程优化和中台方法论沉淀。
 - `actionability_score`：行动启发度，判断是否能形成会议讨论点、产品/设计观察点、营销实验、AI 工作流优化点、弱信号观察项或复盘趋势判断。
-- `source_quality_score`：来源可信度，根据来源质量加权。TechCrunch、The Verge、Retail Dive、Modern Retail、Business of Home、Furniture Today、Home Furnishings News、Shopify、Amazon、OpenAI、Anthropic、Google、Microsoft、Oracle、McKinsey、Bain、Deloitte、Gartner、Reuters、Bloomberg、WSJ、CNBC 等来源会获得更高权重。
+- `source_quality_score`：来源可信度，根据美国权威媒体、美国行业媒体、全球权威媒体、机构/官方来源和低质量来源分级。
+- `source_authority_label`：页面可读的来源等级，例如“美国权威/官方”或“权威行业媒体”。
+- `relevance_reason`：明确写出新闻与哪些业务方向直接相关，以及可以迁移到哪些工作场景。
+- `source_context_label`：标记“正文充分”“媒体摘要”或“信息有限”。主阅读区至少要求取得媒体摘要，并会再次检查摘要是否包含标题之外的事实；只有标题的条目留在归档。
 
 低质量 SEO 趋势稿、纯新闻聚合站、openPR、地方性弱相关门店新闻，以及仅有关键词关系但没有结构性业务价值的内容会被降权，并在需要时输出 `noise_reason`。
 
@@ -39,27 +52,39 @@ GitHub Pages 固定访问地址：
 新版 HTML 页面优先按「主题洞察」组织，而不是按原始标签组织：
 
 - `Header`：Daily Industry Radar、日期、今日一句话判断、今日关键词标签。
+- `情报工具栏`：全文搜索，并可按必读、快读、弱信号、美国来源和本页收藏筛选。
 - `Executive Brief`：用 3-5 句话总结当天最值得关注的结构性变化。
-- `Must Read`：最多 3 条重点新闻，展示标题、来源、原始标签、可信度、业务相关性、知识迁移价值、行动启发度、摘要、为什么重要、业务启发和原文链接。
+- `Must Read`：最多 3 条重点新闻，首屏直接展示事实摘要、来源等级和具体业务相关性；业务影响、知识迁移与建议动作可展开阅读。
 - `Knowledge Transfer Cards`：核心模块，把新闻转化成可迁移业务洞察，包含主题、发生了什么、为什么重要、可迁移到哪里、对 ModernMate / 品类规划 / Hawkeye / Radar / Echo / 社媒营销 的启发、一个可尝试的小动作和关联新闻。
 - `Worth Scanning`：高价值但不一定需要深读的资讯。
 - `Weak Signals`：暂时不能下结论但值得连续观察的信号。
 - `Archive`：保留原始按标签分类新闻列表，默认折叠。
 
-页面 CSS 内置在 HTML 中，移动端优先，采用克制的卡片式布局，重点内容在首屏呈现。
+页面 CSS 和 JavaScript 均内置在 HTML 中，不依赖外部框架。移动端优先，采用高密度、克制的商业情报布局。
+
+## 收藏与转发
+
+每条重点资讯和归档资讯都提供以下处理入口：
+
+- `收藏`：保存在浏览器 `localStorage`，跨日期保留；“收藏夹”可集中查看并复制收藏清单。
+- `转发`：手机端优先调用系统分享面板；不支持系统分享的浏览器会复制一段包含标题、事实摘要、相关性、来源和原文链接的转发文本。
+- `阅读原文`：新窗口打开权威来源原文。
+
+收藏数据仅保存在当前浏览器，不上传服务器，也不会自动同步到其他设备。这样可以继续使用纯静态 GitHub Pages，同时避免新增账号和数据服务。
 
 ## AI 摘要字段
 
 配置 `OPENAI_API_KEY` 后，系统会要求 AI 针对重点新闻输出结构化字段：
 
-- `summary_zh`：中文摘要，不复制标题。
+- `summary_zh`：120-220 字中文事实摘要，优先回答主体、动作、对象、阶段、关键数字/范围和当前结果，不复制或只翻译标题。
+- `relevance_reason`：解释与跨境家具、ModernMate、品类规划、社媒营销或 AI 工作流的具体连接。
 - `why_it_matters`：为什么重要。
 - `business_implication`：对业务的潜在影响。
 - `knowledge_transfer`：可迁移洞察。
 - `suggested_action`：建议动作。
 - `noise_reason`：如果被降权，说明降权原因。
 
-未配置 `OPENAI_API_KEY` 时，脚本会使用规则方式生成简版摘要和洞察字段，保证日报仍可自动运行。
+未配置 `OPENAI_API_KEY` 时，脚本会使用原文摘录和规则方式生成简版字段，保证日报仍可自动运行；要获得稳定的中文事实摘要，应配置 `OPENAI_API_KEY`。页面会明确标记“AI 中文事实摘要”或“原文事实摘录”，避免把英文原文摘录误认为已经完成中文摘要。
 
 ## 本地运行
 
@@ -91,10 +116,11 @@ python main.py
 
 ## 维护 config.yaml
 
-`config.yaml` 包含两类信息源：
+`config.yaml` 包含三类信息源：
 
 - `rss_sources`：直接配置 RSS 名称、URL 和默认分类。
 - `google_news.keywords`：按分类配置 Google News RSS 搜索关键词，支持英文和中文。
+- `bing_news`：使用同一组关键词优先发现带摘要和原媒体直链的资讯，可用 `enabled` 开关。
 
 分类值包括：
 
