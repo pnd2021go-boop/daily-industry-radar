@@ -263,15 +263,27 @@ def _openai_payload(item: dict, model: str) -> dict:
 
 
 def ai_summary(item: dict) -> dict | None:
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
+    openai_key = os.getenv("OPENAI_API_KEY")
+    github_token = os.getenv("GITHUB_TOKEN")
+    if openai_key:
+        api_key = openai_key
+        endpoint = "https://api.openai.com/v1/chat/completions"
+        model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    elif github_token:
+        api_key = github_token
+        endpoint = "https://models.github.ai/inference/chat/completions"
+        model = os.getenv("GITHUB_MODELS_MODEL", "openai/gpt-4o")
+    else:
         return None
 
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     try:
         response = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            endpoint,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Accept": "application/vnd.github+json",
+                "Content-Type": "application/json",
+            },
             json=_openai_payload(item, model),
             timeout=30,
         )
