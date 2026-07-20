@@ -84,7 +84,7 @@ GitHub Pages 固定访问地址：
 - `suggested_action`：建议动作。
 - `noise_reason`：如果被降权，说明降权原因。
 
-未配置 `OPENAI_API_KEY` 时，脚本会使用原文摘录和规则方式生成简版字段，保证日报仍可自动运行；要获得稳定的中文事实摘要，应配置 `OPENAI_API_KEY`。页面会明确标记“AI 中文事实摘要”或“原文事实摘录”，避免把英文原文摘录误认为已经完成中文摘要。
+GitHub Actions 会优先使用 `OPENAI_API_KEY`；未配置时，自动使用工作流自带的 `GITHUB_TOKEN` 调用 GitHub Models 生成中文事实摘要，不需要额外密钥或人工审批。只有两个 AI 通道都不可用时，脚本才使用原文摘录和规则字段兜底。页面会明确标记“AI 中文事实摘要”或“原文事实摘录”，避免混淆。
 
 ## 本地运行
 
@@ -196,7 +196,7 @@ cron: "30 0 * * *"
 
 ### OPENAI_API_KEY 未配置
 
-这是允许的。脚本会使用规则方式生成简版摘要。若要启用 AI 摘要，请在 GitHub Actions Secrets 中配置 `OPENAI_API_KEY`。
+这是允许的。GitHub Actions 会自动使用 `GITHUB_TOKEN` 和 GitHub Models 生成中文摘要；本地运行且两个令牌均不可用时，脚本才使用规则方式生成简版摘要。
 
 ### 页面样式异常
 
