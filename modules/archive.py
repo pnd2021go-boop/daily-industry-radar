@@ -10,7 +10,9 @@ FIELDNAMES = [
     "date", "title", "one_sentence", "summary_zh", "why_it_matters", "business_implication",
     "knowledge_transfer", "suggested_action", "noise_reason", "category", "value_tier",
     "business_relevance_score", "knowledge_transfer_score", "actionability_score",
-    "source_quality_score", "total_value_score", "source_name", "published_at", "url",
+    "source_quality_score", "total_value_score", "source_name", "source_authority_label",
+    "is_us_priority", "source_context_score", "source_context_label", "summary_generation_label",
+    "summary_substantive", "relevance_reason", "published_at", "url",
 ]
 
 

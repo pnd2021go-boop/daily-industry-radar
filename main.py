@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -11,10 +12,10 @@ from dotenv import load_dotenv
 from modules.archive import append_news_archive, write_markdown_backup
 from modules.classifier import classify_item
 from modules.deduplicator import deduplicate_items
-from modules.fetchers import fetch_all
+from modules.fetchers import fetch_all, resolve_original_url
 from modules.insights import apply_radar_scores, assign_value_tiers, build_radar_context
 from modules.render_pages import write_pages
-from modules.summarizer import has_enough_source_text, summarize_item
+from modules.summarizer import has_enough_source_text, hydrate_source_text, summarize_item
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -70,13 +71,32 @@ def _classify_and_score(items: list[dict]) -> list[dict]:
 
 
 def _select_radar_items(scored: list[dict], max_items: int) -> list[dict]:
+    authoritative = [
+        item for item in scored
+        if item.get("is_authoritative_source") and item.get("matched_business_dimensions")
+    ]
+    logger.info(
+        "Kept %s authoritative items; excluded %s unverified or low-quality items",
+        len(authoritative),
+        len(scored) - len(authoritative),
+    )
     ranked = sorted(
-        scored,
-        key=lambda item: (int(item.get("total_value_score", 0)), item.get("published_at", "")),
+        authoritative,
+        key=lambda item: (
+            int(item.get("total_value_score", 0)),
+            bool(item.get("is_us_priority")),
+            item.get("published_at", ""),
+        ),
         reverse=True,
     )
-    scan_limit = min(len(ranked), max(80, max_items * 4))
+    scan_limit = min(len(ranked), max(30, max_items + 12))
     candidates = ranked[:scan_limit]
+    if candidates:
+        workers = min(8, len(candidates))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            candidates = list(pool.map(resolve_original_url, candidates))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            candidates = list(pool.map(hydrate_source_text, candidates))
     selected: list[dict] = []
     selected_urls: set[str] = set()
 

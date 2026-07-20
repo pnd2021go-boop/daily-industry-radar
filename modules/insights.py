@@ -8,9 +8,9 @@ from urllib.parse import urlparse
 
 BUSINESS_TERMS = {
     "跨境电商": ["amazon", "shopify", "wayfair", "marketplace", "seller", "tiktok shop", "temu", "shein", "walmart", "ebay", "etsy", "cross-border", "ecommerce", "独立站", "跨境", "卖家"],
-    "家具家居": ["furniture", "home", "interior", "sofa", "mattress", "ikea", "ashley", "wayfair", "home depot", "家居", "家具", "室内设计"],
+    "家具家居": ["furniture", "home furnishings", "home decor", "home improvement", "interior design", "sofa", "mattress", "ikea", "ashley", "wayfair", "home depot", "家居", "家具", "室内设计"],
     "AI工作流": ["ai agent", "agents", "agentic", "workflow", "automation", "rag", "openai", "anthropic", "gemini", "claude", "ai search", "智能体", "自动化"],
-    "零售科技": ["retail media", "retail technology", "consumer behavior", "loyalty", "shopping", "store", "retail", "消费者", "零售"],
+    "零售科技": ["retail media", "retail technology", "consumer behavior", "customer data", "loyalty program", "commerce media", "retailer", "retailing", "retail", "消费者", "零售"],
     "供应链": ["supply chain", "inventory", "logistics", "tariff", "warehouse", "fulfillment", "shipping", "库存", "物流", "关税", "供应链"],
     "品牌营销": ["brand", "marketing", "social media", "creator", "kol", "influencer", "content commerce", "campaign", "品牌", "营销", "社媒", "内容"],
 }
@@ -18,7 +18,7 @@ BUSINESS_TERMS = {
 TRANSFER_TERMS = {
     "品类规划": ["category", "assortment", "product", "launch", "trend", "consumer", "demand", "style", "品类", "产品", "趋势"],
     "产品机会识别": ["opportunity", "gap", "growth", "demand", "market", "new", "emerging", "增长", "机会"],
-    "家具系列开发": ["furniture", "home", "interior", "sofa", "storage", "living room", "bedroom", "家居", "家具"],
+    "家具系列开发": ["furniture", "home furnishings", "home decor", "interior design", "sofa", "storage furniture", "living room", "bedroom furniture", "家居", "家具"],
     "ModernMate品牌营销": ["brand", "marketing", "creator", "social", "campaign", "loyalty", "retail media", "品牌", "营销"],
     "社媒内容策略": ["tiktok", "instagram", "social media", "creator", "short video", "content", "influencer", "社媒", "内容"],
     "AI工作流": ["agent", "workflow", "automation", "search", "assistant", "orchestration", "智能体", "自动化"],
@@ -32,17 +32,67 @@ ACTION_TERMS = [
     "发布", "合作", "试点", "监管", "政策", "关税", "库存", "趋势",
 ]
 
-HIGH_QUALITY_SOURCES = {
-    "techcrunch", "the verge", "retail dive", "modern retail", "business of home",
-    "furniture today", "home furnishings news", "shopify", "amazon", "openai", "anthropic",
-    "google blog", "google cloud", "microsoft", "oracle", "mckinsey", "bain", "deloitte", "gartner",
-    "reuters", "bloomberg", "wsj", "wall street journal", "cnbc", "homenewsnow",
+US_AUTHORITY_SOURCES = {
+    "associated press", "ap news", "axios", "bloomberg", "business insider", "cnbc",
+    "cnn business", "forbes", "fortune", "new york times", "the new york times", "the information", "reuters",
+    "techcrunch", "the verge", "the wall street journal", "wall street journal", "the washington post", "washington post", "wired", "wsj",
+}
+
+US_TRADE_SOURCES = {
+    "ad age", "adweek", "business of home", "chain store age", "digital commerce 360",
+    "emarketer", "furniture today", "freightwaves", "home furnishings news", "home news now",
+    "homenewsnow", "modern retail", "practical ecommerce", "pymnts", "retail dive",
+    "retail touchpoints", "supply chain dive",
+}
+
+GLOBAL_AUTHORITY_SOURCES = {
+    "bbc", "economist", "the economist", "financial times", "the financial times", "guardian", "the guardian", "nikkei asia", "south china morning post",
+}
+
+OFFICIAL_AND_RESEARCH_SOURCES = {
+    "amazon", "anthropic", "bain", "deloitte", "gartner", "google blog", "google cloud",
+    "mckinsey", "meta newsroom", "microsoft", "openai", "oracle", "shopify", "walmart",
+}
+
+OFFICIAL_EXACT_SOURCES = {
+    "amazon", "anthropic", "google", "microsoft", "openai", "oracle", "shopify", "walmart",
+}
+
+US_AUTHORITY_DOMAINS = {
+    "apnews.com", "axios.com", "bloomberg.com", "businessinsider.com", "cnbc.com",
+    "cnn.com", "forbes.com", "fortune.com", "nytimes.com", "reuters.com", "techcrunch.com",
+    "theinformation.com", "theverge.com", "washingtonpost.com", "wired.com", "wsj.com",
+}
+
+US_TRADE_DOMAINS = {
+    "adage.com", "adweek.com", "businessofhome.com", "chainstoreage.com",
+    "digitalcommerce360.com", "emarketer.com", "freightwaves.com", "furnituretoday.com",
+    "hfnmag.com", "homenewsnow.com", "modernretail.co", "practicalecommerce.com",
+    "pymnts.com", "retaildive.com", "retailtouchpoints.com", "supplychaindive.com",
+}
+
+GLOBAL_AUTHORITY_DOMAINS = {
+    "bbc.com", "economist.com", "ft.com", "theguardian.com", "nikkei.com", "scmp.com",
+}
+
+OFFICIAL_AND_RESEARCH_DOMAINS = {
+    "aboutamazon.com", "amazon.com", "anthropic.com", "bain.com", "blog.google", "deloitte.com",
+    "gartner.com", "mckinsey.com", "microsoft.com", "openai.com", "oracle.com", "shopify.com",
+    "walmart.com",
 }
 
 LOW_QUALITY_SOURCES = {
     "openpr", "ein news", "streetinsider", "ad hoc news", "aol.com", "msn", "zawya",
     "simplywall", "tipranks", "stock titan", "mexc", "manila times", "newsfile",
     "tradingview", "indexbox", "ein presswire", "the business research company",
+}
+
+SOURCE_LABELS = {
+    5: "美国权威/官方",
+    4: "权威行业媒体",
+    3: "可信专业来源",
+    2: "来源待核验",
+    1: "低质量/聚合来源",
 }
 
 NOISE_TERMS = [
@@ -70,7 +120,7 @@ THEME_DEFINITIONS = [
     {
         "key": "furniture_channels",
         "name": "家具零售承压与渠道集中化",
-        "terms": ["furniture", "home", "interior", "retailer", "store", "wayfair", "home depot", "ikea"],
+        "terms": ["furniture", "home furnishings", "home decor", "interior design", "furniture retailer", "wayfair", "home depot", "ikea", "ashley"],
         "transfer": "家具系列开发、价格带规划、渠道组合和线下/线上协同判断",
         "inspiration": "家具购买仍依赖信任、展示和服务，渠道变化会影响系列定位和内容表达。",
         "action": "把今日家具新闻拆成价格、渠道、场景、服务四个维度，检查现有产品线是否有空档。",
@@ -119,6 +169,10 @@ class RadarScores:
     total_value_score: int
     matched_business_dimensions: tuple[str, ...]
     matched_transfer_dimensions: tuple[str, ...]
+    source_authority_label: str
+    is_us_priority: bool
+    is_authoritative_source: bool
+    relevance_reason: str
     noise_reason: str
 
 
@@ -131,7 +185,6 @@ def text_for_item(item: dict) -> str:
         item.get("title", ""),
         item.get("summary_raw", ""),
         item.get("source_name", ""),
-        item.get("category_hint", ""),
     ])).lower()
 
 
@@ -149,29 +202,75 @@ def _score_from_hits(hit_count: int, strong_bonus: int = 0) -> int:
 
 def _publisher_text(item: dict) -> str:
     source = clean_text(item.get("source_name", "")).lower()
-    title = clean_text(item.get("title", "")).lower()
     host = urlparse(item.get("url", "")).netloc.lower().replace("www.", "")
-    # Google News is a discovery channel, not the original publisher. When RSS
-    # titles contain "Title - Publisher", use the suffix for source weighting.
-    if source.startswith("google news") and " - " in title:
-        publisher = title.rsplit(" - ", 1)[-1]
-        return f"{publisher} {host}"
     return f"{source} {host}"
 
 
-def source_quality_score(item: dict) -> int:
-    source = clean_text(item.get("source_name", "")).lower()
+def _source_matches(source: str, host: str, names: set[str]) -> bool:
+    for name in names:
+        if source == name or source.startswith(f"{name} ") or host == name or host.endswith(f".{name}"):
+            return True
+    return False
+
+
+def _domain_matches(host: str, domains: set[str]) -> bool:
+    return any(host == domain or host.endswith(f".{domain}") for domain in domains)
+
+
+def source_profile(item: dict) -> dict:
+    source = clean_text(item.get("source_name", ""))
+    source_lower = source.lower()
     host = urlparse(item.get("url", "")).netloc.lower().replace("www.", "")
-    combined = _publisher_text(item)
-    if any(name in combined for name in HIGH_QUALITY_SOURCES):
-        return 5
-    if any(name in combined for name in LOW_QUALITY_SOURCES):
-        return 2
-    if "google news" in source:
-        return 3
-    if host and not any(x in host for x in ["news.google", "msn", "aol"]):
-        return 3
-    return 2
+    path = urlparse(item.get("url", "")).path.lower()
+    sponsored_path = any(term in path for term in ["press-release", "press_release", "sponsored", "partner-content"])
+    if sponsored_path or _source_matches(source_lower, host, LOW_QUALITY_SOURCES):
+        score = 1
+        us_priority = False
+        authoritative = False
+    elif source_lower in OFFICIAL_EXACT_SOURCES or _source_matches(source_lower, host, OFFICIAL_AND_RESEARCH_SOURCES) or _domain_matches(host, OFFICIAL_AND_RESEARCH_DOMAINS):
+        score = 5
+        us_priority = True
+        authoritative = True
+    elif _source_matches(source_lower, host, US_AUTHORITY_SOURCES) or _domain_matches(host, US_AUTHORITY_DOMAINS):
+        score = 5
+        us_priority = True
+        authoritative = True
+    elif _source_matches(source_lower, host, US_TRADE_SOURCES) or _domain_matches(host, US_TRADE_DOMAINS):
+        score = 4
+        us_priority = True
+        authoritative = True
+    elif _source_matches(source_lower, host, GLOBAL_AUTHORITY_SOURCES) or _domain_matches(host, GLOBAL_AUTHORITY_DOMAINS):
+        score = 4
+        us_priority = False
+        authoritative = True
+    elif source and not source.lower().startswith("google news"):
+        score = 2
+        us_priority = False
+        authoritative = False
+    else:
+        score = 1
+        us_priority = False
+        authoritative = False
+    return {
+        "score": score,
+        "label": SOURCE_LABELS[score],
+        "is_us_priority": us_priority,
+        "is_authoritative": authoritative,
+    }
+
+
+def source_quality_score(item: dict) -> int:
+    return int(source_profile(item)["score"])
+
+
+def relevance_reason_for(business_hits: list[str], transfer_hits: list[str]) -> str:
+    if not business_hits:
+        return "未发现与当前核心业务的直接连接，仅保留作外围观察。"
+    business = "、".join(business_hits[:3])
+    if transfer_hits:
+        transfer = "、".join(transfer_hits[:3])
+        return f"直接关联 {business}；可迁移到 {transfer}。"
+    return f"直接关联 {business}，但暂未形成明确的工作迁移路径。"
 
 
 def noise_reason_for(item: dict, text: str, business_hits: list[str], transfer_hits: list[str], source_score: int) -> str:
@@ -191,7 +290,8 @@ def score_item(item: dict) -> RadarScores:
     text = text_for_item(item)
     business_hits = _hit_dimensions(text, BUSINESS_TERMS)
     transfer_hits = _hit_dimensions(text, TRANSFER_TERMS)
-    source_score = source_quality_score(item)
+    profile = source_profile(item)
+    source_score = int(profile["score"])
     action_hits = sum(1 for term in ACTION_TERMS if term.lower() in text)
 
     preferred_bonus = 1 if item.get("category_hint") in {
@@ -205,12 +305,15 @@ def score_item(item: dict) -> RadarScores:
         action_score = max(1, action_score - 1)
         transfer_score = max(1, transfer_score - 1)
 
+    us_bonus = 4 if profile["is_us_priority"] else 0
+    authority_penalty = 0 if profile["is_authoritative"] else 18
     total = round((
         business_score * 0.30
         + transfer_score * 0.25
         + action_score * 0.25
         + source_score * 0.20
-    ) * 20)
+    ) * 20) + us_bonus - authority_penalty
+    total = max(0, min(100, total))
     noise_reason = noise_reason_for(item, text, business_hits, transfer_hits, source_score)
     return RadarScores(
         business_relevance_score=business_score,
@@ -220,6 +323,10 @@ def score_item(item: dict) -> RadarScores:
         total_value_score=total,
         matched_business_dimensions=tuple(business_hits),
         matched_transfer_dimensions=tuple(transfer_hits),
+        source_authority_label=str(profile["label"]),
+        is_us_priority=bool(profile["is_us_priority"]),
+        is_authoritative_source=bool(profile["is_authoritative"]),
+        relevance_reason=relevance_reason_for(business_hits, transfer_hits),
         noise_reason=noise_reason,
     )
 
@@ -234,6 +341,10 @@ def apply_radar_scores(item: dict) -> dict:
         "total_value_score": scores.total_value_score,
         "matched_business_dimensions": list(scores.matched_business_dimensions),
         "matched_transfer_dimensions": list(scores.matched_transfer_dimensions),
+        "source_authority_label": scores.source_authority_label,
+        "is_us_priority": scores.is_us_priority,
+        "is_authoritative_source": scores.is_authoritative_source,
+        "relevance_reason": scores.relevance_reason,
         "noise_reason": scores.noise_reason,
     })
     return item
@@ -247,11 +358,14 @@ def assign_value_tiers(items: list[dict]) -> list[dict]:
         score = int(item.get("total_value_score", 0))
         source_score = int(item.get("source_quality_score", 0) or 0)
         action_score = int(item.get("actionability_score", 0) or 0)
-        if score >= 76 and source_score >= 3 and action_score >= 2 and counts["must_read"] < caps["must_read"]:
+        context_score = int(item.get("source_context_score", 0) or 0)
+        summary_substantive = bool(item.get("summary_substantive"))
+        authoritative = bool(item.get("is_authoritative_source"))
+        if score >= 76 and authoritative and summary_substantive and source_score >= 4 and context_score >= 2 and action_score >= 2 and counts["must_read"] < caps["must_read"]:
             tier = "must_read"
-        elif score >= 62 and counts["worth_scanning"] < caps["worth_scanning"]:
+        elif score >= 62 and authoritative and summary_substantive and source_score >= 4 and context_score >= 1 and counts["worth_scanning"] < caps["worth_scanning"]:
             tier = "worth_scanning"
-        elif score >= 48 and counts["weak_signals"] < caps["weak_signals"]:
+        elif score >= 48 and authoritative and summary_substantive and context_score >= 1 and counts["weak_signals"] < caps["weak_signals"]:
             tier = "weak_signals"
         else:
             tier = "archive"
